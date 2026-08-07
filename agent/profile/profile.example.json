@@ -20,5 +20,12 @@
     }
   ],
   "location_preferences": [],
-  "remote_preference": "REPLACE ME"
+  "remote_preference": "REPLACE ME",
+  "transferable_strengths": [
+    {
+      "label": "REPLACE ME: e.g. Adaptability / comfort with ambiguity",
+      "evidence": "REPLACE ME: grounded, specific evidence - not a generic claim.",
+      "keywords": ["adaptability", "flexib", "ambigu", "fast-paced"]
+    }
+  ]
 }

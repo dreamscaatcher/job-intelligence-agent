@@ -24,6 +24,15 @@ class MatchResult(TypedDict, total=False):
     matched_skills: list[str]
     missing_skills: list[str]
     notes: str
+    transferable_signals: list[str]  # profile.transferable_strengths that matched this
+                                      # posting's text (adaptability/learning-agility/
+                                      # generalist keywords) - kept separate from
+                                      # fit_score's hard skill-overlap math, added
+                                      # 2026-08-07 per Gurinder's instruction to weigh
+                                      # readiness-to-learn/flexibility/adaptability,
+                                      # since the pure skill-overlap scorer was giving
+                                      # 0.0 fit to postings that explicitly value these
+                                      # traits but don't list them as "skills".
 
 
 class Briefing(TypedDict, total=False):
@@ -46,6 +55,14 @@ class AgentState(TypedDict, total=False):
                          # US postings for a "Data Analyst Berlin" query. Splitting
                          # it into its own URL param fixed it - see search.py.
     max_results: int
+    brief_limit: int    # how many of the fetched postings actually go through
+                         # Extract/Match/Brief-writer (the expensive LLM stages).
+                         # Real bug found 2026-08-07: job_intel_search_and_brief
+                         # timed out through the Claude Desktop MCP client because
+                         # the actor's minimum count=10 meant up to 20 sequential
+                         # Claude calls (10 extract + 10 brief) - way past a normal
+                         # MCP request timeout. search still fetches max_results
+                         # postings; only the top brief_limit get the full pipeline.
 
     # Search -> Extract
     raw_postings: list[dict]

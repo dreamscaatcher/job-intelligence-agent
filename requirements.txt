@@ -1,5 +1,8 @@
 langgraph>=0.2.0
 anthropic>=0.34.0
+# apify-client: deliberately unpinned across the v2/v3 boundary. v3 requires
+# Python 3.11+ and returns Pydantic models instead of dicts (see
+# agent/tools/apify_tools.py's _dataset_id() for why the code handles both).
 apify-client>=1.7.0
 fastapi>=0.112.0
 uvicorn>=0.30.0

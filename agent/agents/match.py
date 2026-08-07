@@ -16,6 +16,39 @@ def _load_profile() -> dict:
     return json.loads(settings.profile_path.read_text())
 
 
+def _detect_transferable_signals(posting: dict, profile: dict) -> list[str]:
+    """Scans posting text for keywords tied to profile.transferable_strengths
+    (adaptability, readiness to learn, cross-domain/generalist problem-solving).
+
+    Added 2026-08-07 per Gurinder's instruction to add these traits "to the
+    mix" - the pure hard-skill overlap in _score_posting was returning 0.0
+    fit_score for postings that explicitly ask for adaptability/comfort with
+    ambiguity/fast learners (e.g. the Beam AI EIR posting listed "comfort
+    with ambiguity and fast-paced environments" as a requirement), because
+    those traits aren't "skills" in the technical sense _score_posting
+    matches on. Deliberately kept as a SEPARATE field from fit_score rather
+    than blended into it - inflating the hard-skill number would repeat the
+    exact mistake fixed in the fit_score=None case (fabricated confidence).
+    This is a keyword scan, not an LLM judgment call - it can false-negative
+    on paraphrased requirements, but won't fabricate a match that isn't
+    textually present."""
+    haystack = " ".join(
+        [
+            posting.get("title", ""),
+            posting.get("raw_text", ""),
+            " ".join(posting.get("required_skills", [])),
+            " ".join(posting.get("nice_to_have_skills", [])),
+        ]
+    ).lower()
+
+    signals = []
+    for strength in profile.get("transferable_strengths", []):
+        keywords = strength.get("keywords", [])
+        if any(kw.lower() in haystack for kw in keywords):
+            signals.append(f"{strength.get('label', '')}: {strength.get('evidence', '')}")
+    return signals
+
+
 def _score_posting(posting: dict, profile: dict) -> MatchResult:
     posting_skills = {
         s.lower()
@@ -29,6 +62,7 @@ def _score_posting(posting: dict, profile: dict) -> MatchResult:
 
     matched = sorted(posting_skills & profile_skills)
     missing = sorted(posting_skills - profile_skills)
+    transferable_signals = _detect_transferable_signals(posting, profile)
 
     notes = "Skill-overlap score only (no LLM judgment yet)."
     if profile.get("_comment"):
@@ -52,6 +86,7 @@ def _score_posting(posting: dict, profile: dict) -> MatchResult:
         "matched_skills": matched,
         "missing_skills": missing,
         "notes": notes,
+        "transferable_signals": transferable_signals,
     }
 
 

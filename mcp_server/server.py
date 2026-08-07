@@ -36,6 +36,18 @@ class SearchAndBriefInput(BaseModel):
     query: str = Field(description="Job title / keywords, e.g. 'Data Analyst'. Do NOT include location here.")
     location: str = Field(default="", description="e.g. 'Berlin, Germany'. Kept separate from query - see search.py for why.")
     max_results: int = Field(default=10, ge=10, description="Actor enforces a minimum of 10.")
+    brief_limit: int = Field(
+        default=3, ge=1,
+        description=(
+            "How many of the fetched postings actually get the full Extract/Match/Brief-writer "
+            "treatment. Defaults to 3, not max_results - real bug found 2026-08-07: briefing all "
+            "10 postings meant up to 20 sequential Claude calls, which timed out through the "
+            "Claude Desktop MCP client. The Search stage itself also has real, LinkedIn-retry-"
+            "driven latency variance (22-90s observed, outside this code's control), so even a "
+            "low brief_limit isn't a hard guarantee against timeout on a slow run. Raise this if "
+            "you want more briefings and can tolerate a longer, less predictable wait."
+        ),
+    )
 
 
 class SearchOnlyInput(BaseModel):
@@ -53,7 +65,7 @@ def job_intel_search_and_brief(params: SearchAndBriefInput) -> str:
     Use this for "find me jobs matching X" - for raw postings without the
     LLM synthesis, use job_intel_search_postings instead (faster, cheaper).
     """
-    result = run_pipeline(params.query, params.max_results, params.location)
+    result = run_pipeline(params.query, params.max_results, params.location, params.brief_limit)
     return json.dumps(
         {
             "briefings": result.get("briefings", []),
