@@ -1,0 +1,28 @@
+{
+  "case_id": "berlin_ai_engineer",
+  "query": "AI Engineer",
+  "location": "Berlin, Germany",
+  "geo_fidelity": {
+    "applicable": true,
+    "total": 10,
+    "matches": 10,
+    "fraction": 1.0,
+    "passed": true,
+    "mismatches": []
+  },
+  "pipeline_errors": [],
+  "faithfulness_judgments": [
+    {
+      "faithful": true,
+      "reasoning": "The briefing accurately represents the input data without adding unsupported claims. The 'situation' section correctly summarizes the posting details (company, seniority, locations, role responsibilities, required/nice-to-have skills). The 'assessment' section faithfully reports the 0.0 fit score and explicitly lists the 17 missing skills directly from input_match_result.missing_skills. The 'recommendation' appropriately interprets the zero overlap data. The 'sources' correctly includes the posting URL. The 'no_data_warning' restates the match data findings. All claims trace back to either the posting content or the match_result metrics\u2014no invented skills, no fabricated company facts, no location claims beyond what's stated (San Francisco/Berlin from posting, Berlin from LinkedIn URL).",
+      "unsupported_claims": []
+    },
+    {
+      "faithful": true,
+      "reasoning": "The briefing accurately represents all information from the input data. The situation section correctly extracts role responsibilities, required qualifications, and key requirements directly from the posting text. The assessment section appropriately interprets the 6% fit_score and the single matched skill (Python) versus the 17 missing skills listed in the input. The recommendation logically follows from the low match score and extensive skill gaps. All company facts (Berlin location, Merantix Momentum name, talent pool nature), technical requirements (PyTorch, cloud platforms, ML specializations), and qualifications (MSc/PhD, English fluency) are directly stated in the posting. The briefing makes no unsupported claims about the candidate's background - it only notes what cannot be assessed from the limited match data provided. The sources field correctly lists the URL from the input. No skills, requirements, or company details are invented beyond what appears in the input posting.",
+      "unsupported_claims": []
+    }
+  ],
+  "faithfulness_passed": true,
+  "overall_passed": true
+}

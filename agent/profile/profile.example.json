@@ -1,0 +1,24 @@
+{
+  "_comment": "Copy this file to profile.json and fill in real content. Nothing in this example file is real profile data - see ADR-0001 open item 2 (no current AI/tech resume was found in Google Drive as of 2026-08-06; only a 2020 GIS Officer CV with no AI/tech content turned up).",
+  "target_roles": [
+    "AI Agent Engineer",
+    "ML Engineer",
+    "Applied AI Engineer"
+  ],
+  "positioning_summary": "REPLACE ME: one paragraph on how you want to be positioned - e.g. the intelligence-ops-to-AI-agents narrative referenced in the portfolio plan.",
+  "years_experience": 0,
+  "skills": {
+    "core": [],
+    "tools_and_frameworks": [],
+    "domains": []
+  },
+  "notable_projects": [
+    {
+      "name": "Operations Intelligence Agent",
+      "description": "BigQuery ML risk scoring, Neo4j supply-network graph, 3-agent LangGraph briefing pipeline, MCP server, eval suite, geospatial risk map.",
+      "verified_metrics": "Held-out R2=0.5464, MAE=0.2631 (train/test split, not in-sample)"
+    }
+  ],
+  "location_preferences": [],
+  "remote_preference": "REPLACE ME"
+}

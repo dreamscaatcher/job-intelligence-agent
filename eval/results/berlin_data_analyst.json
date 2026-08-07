@@ -1,0 +1,28 @@
+{
+  "case_id": "berlin_data_analyst",
+  "query": "Data Analyst",
+  "location": "Berlin, Germany",
+  "geo_fidelity": {
+    "applicable": true,
+    "total": 10,
+    "matches": 10,
+    "fraction": 1.0,
+    "passed": true,
+    "mismatches": []
+  },
+  "pipeline_errors": [],
+  "faithfulness_judgments": [
+    {
+      "faithful": true,
+      "reasoning": "The briefing accurately reflects all information present in the input data. The situation summary correctly extracts key requirements from the posting (Berlin location, Acquisition/Retention domains, Eppo platform, required skills). The assessment accurately uses the 0.2 fit score from match_result, correctly lists the 3 matched_skills (Power BI, SQL, Tableau), and accurately identifies all 12 missing_skills from the input. The recommendation appropriately interprets the poor fit score and missing skills. The source URL matches exactly. The no_data_warning appropriately notes the limitation that match data only shows tool names without deeper context. No claims are made about the candidate's background, experience, or qualifications beyond what can be inferred from the matched/missing skills lists. All posting details (company facts, role responsibilities, required experience) are drawn directly from the raw_text.",
+      "unsupported_claims": []
+    },
+    {
+      "faithful": true,
+      "reasoning": "The briefing accurately represents all information from the input data. The situation section correctly summarizes the posting details including location (Berlin), company (Kaufland e-commerce), required experience (2-3 years), specific skills (Adobe Analytics, SQL/Python, A/B testing), nice-to-have skills (Tableau, MicroStrategy), and benefits (remote work within Germany, 30 days vacation). The assessment accurately reflects the 33% fit score and correctly identifies the 3 matched skills (Python, SQL, Tableau) versus the 6 missing skills from the match result. The recommendation logically follows from the low match score and missing critical requirements. The no_data_warning appropriately notes limitations in the match data (only showing technical skills, not communication/soft skills). No claims are made that aren't grounded in the input posting or match result.",
+      "unsupported_claims": []
+    }
+  ],
+  "faithfulness_passed": true,
+  "overall_passed": true
+}

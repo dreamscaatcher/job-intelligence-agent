@@ -1,0 +1,17 @@
+{
+  "case_id": "no_location_global",
+  "query": "Data Analyst",
+  "location": "",
+  "pipeline_errors": [],
+  "faithfulness_judgments": [
+    {
+      "faithful": true,
+      "reasoning": "The briefing accurately reflects all information from the input posting and match result. The situation section correctly summarizes the job title, company, location, responsibilities, and requirements from the posting. The assessment section accurately cites the 19% fit score from the match result, correctly identifies the 3 matched skills (Power BI, SQL, Tableau) and lists the missing skills that appear in the missing_skills array. The recommendation appropriately references the low match percentage and makes judgments based on the documented skill gaps. All specific claims about requirements (SAP, Excel proficiency, 3+ years experience, Bachelor's degree) are directly grounded in the posting's raw_text. No invented skills, company facts, or requirements appear in the briefing.",
+      "unsupported_claims": []
+    }
+  ],
+  "faithfulness_passed": true,
+  "no_location_fabrication_passed": true,
+  "no_location_fabrication_flagged": [],
+  "overall_passed": true
+}

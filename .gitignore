@@ -1,0 +1,6 @@
+.env
+agent/profile/profile.json
+__pycache__/
+*.pyc
+.venv/
+venv/
