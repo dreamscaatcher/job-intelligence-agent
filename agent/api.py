@@ -48,6 +48,7 @@ def search(req: SearchRequest) -> dict:
                 "seniority": posting.get("seniority", ""),
                 "salary": posting.get("salary"),
                 "url": posting.get("url", ""),
+                "source": posting.get("source", ""),
                 "fit_score": mr.get("fit_score"),
                 "matched_skills": mr.get("matched_skills", []),
                 "missing_skills": mr.get("missing_skills", []),

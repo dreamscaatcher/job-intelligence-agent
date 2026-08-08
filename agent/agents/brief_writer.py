@@ -36,6 +36,11 @@ possible locations (e.g. "San Francisco (US) or Berlin (GER)"), state all of
 them in "situation" - do not collapse a multi-location posting down to just
 one city.
 
+The posting's "source" field (linkedin/xing/indeed) tells you which
+platform it was found on - mention it naturally in "situation" if it seems
+useful context (e.g. Xing postings skew DACH-local, Indeed aggregates from
+many company career pages), but don't force it if it doesn't add anything.
+
 If the input includes a non-empty "transferable_signals" list, treat those
 as real, evidence-backed context (readiness to learn / adaptability /
 cross-domain problem-solving) and weave them into "assessment" alongside

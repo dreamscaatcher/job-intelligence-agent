@@ -16,6 +16,11 @@ Tools:
   useful when you just want raw postings.
 - job_intel_get_profile: read-only passthrough of the loaded profile, useful
   for confirming what the Match agent is actually scoring against.
+
+Multi-source as of 2026-08-08: both tools that search now query LinkedIn,
+Xing, and Indeed in parallel (see agent/tools/apify_tools.py), not just
+LinkedIn. Each posting carries a `source` field so it's clear which platform
+it came from.
 """
 from __future__ import annotations
 
@@ -27,7 +32,7 @@ from pydantic import BaseModel, Field
 
 from agent.agents.match import _load_profile
 from agent.graph import run as run_pipeline
-from agent.tools.apify_tools import search_job_postings
+from agent.tools.apify_tools import search_all_sources
 
 server = MCPServer("job-intelligence-agent")
 
@@ -58,9 +63,10 @@ class SearchOnlyInput(BaseModel):
 
 @server.tool(annotations=ToolAnnotations(read_only_hint=False))  # calls Anthropic + Apify, costs API spend
 def job_intel_search_and_brief(params: SearchAndBriefInput) -> str:
-    """Runs the full Job Intelligence Agent pipeline: searches LinkedIn for
-    matching postings, extracts structured requirements, scores them against
-    Gurinder's profile, and writes a SITREP-style briefing per posting.
+    """Runs the full Job Intelligence Agent pipeline: searches LinkedIn,
+    Xing, and Indeed in parallel for matching postings, extracts structured
+    requirements, scores them against Gurinder's profile, and writes a
+    SITREP-style briefing per posting.
 
     Use this for "find me jobs matching X" - for raw postings without the
     LLM synthesis, use job_intel_search_postings instead (faster, cheaper).
@@ -77,10 +83,12 @@ def job_intel_search_and_brief(params: SearchAndBriefInput) -> str:
 
 @server.tool(annotations=ToolAnnotations(read_only_hint=True))
 def job_intel_search_postings(params: SearchOnlyInput) -> str:
-    """Raw LinkedIn job search only - no extraction, matching, or briefing.
-    Fast and cheap (no Anthropic calls). Use when you just need listings."""
-    items = search_job_postings(params.query, params.max_results, params.location)
-    return json.dumps(items)
+    """Raw job search across LinkedIn, Xing, and Indeed (run in parallel,
+    deduped) - no extraction, matching, or briefing. Fast and cheap (no
+    Anthropic calls). Use when you just need listings. Each item has a
+    `source` field ("linkedin"/"xing"/"indeed")."""
+    items, errors = search_all_sources(params.query, params.max_results, params.location)
+    return json.dumps({"items": items, "errors": errors})
 
 
 @server.tool(annotations=ToolAnnotations(read_only_hint=True))

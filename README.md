@@ -1,8 +1,9 @@
 # Job Intelligence Agent
 
-Multi-agent LangGraph pipeline that searches LinkedIn for job postings,
-extracts structured requirements, matches them against a profile, and writes
-a SITREP-style briefing (Situation / Assessment / Recommendation) per match.
+Multi-agent LangGraph pipeline that searches LinkedIn, Xing, and Indeed for
+job postings, extracts structured requirements, matches them against a
+profile, and writes a SITREP-style briefing (Situation / Assessment /
+Recommendation) per match.
 
 Rebuild of a prior "AI-Powered Job Matching Agent" whose source repo was
 deleted and confirmed unrecoverable (2026-08-06 decision: rebuild from
@@ -20,8 +21,8 @@ actually took. Public repo: github.com/dreamscaatcher/job-intelligence-agent.
 Search -> Extract -> Match -> Brief-writer
 ```
 
-- **Search** (`agent/agents/search.py`) - live: `curious_coder/linkedin-jobs-scraper` on Apify.
-- **Extract** (`agent/agents/extract.py`) - structured fields copied directly from the actor's real output; only skills are pulled from free text via Claude. Parallelized (`ThreadPoolExecutor`, 5 workers).
+- **Search** (`agent/agents/search.py`) - live, multi-source (`agent/tools/apify_tools.py`): `curious_coder/linkedin-jobs-scraper`, `shahidirfan/Xing-Jobs-Scraper`, and `valig/indeed-jobs-scraper` on Apify, run in parallel (`ThreadPoolExecutor`) and merged/deduped (by title+company). One source failing doesn't fail the others - errors accumulate in state like everywhere else in this pipeline. Each posting is normalized to a common shape at the source layer and tagged with `source`.
+- **Extract** (`agent/agents/extract.py`) - structured fields copied directly from the normalized posting; only skills are pulled from free text via Claude. Parallelized (`ThreadPoolExecutor`, 5 workers).
 - **Match** (`agent/agents/match.py`) - `JobPosting` vs `Profile` -> fit score + matched/missing skills, plus `transferable_signals`: a separate keyword-based scan of `profile.transferable_strengths` (adaptability, readiness to learn, cross-domain problem-solving, real domain experience like personal trading) against the posting text. Kept deliberately separate from the hard skill-overlap `fit_score` rather than blended into it - see bug 7 below for why this mattered in practice.
 - **Brief-writer** (`agent/agents/brief_writer.py`) - `MatchResult` -> SITREP briefing, same contract as the Operations Intelligence Agent's briefing tool. Parallelized, with order preserved (bug 8) so a briefing always lines up with its own match data.
 - **Web UI** (`agent/static/search.html`, served at `GET /search`) - form for query/location/max_results/brief_limit, renders results as cards with a fit-score badge, matched/missing skill chips, transferable signals, and the full SITREP. `GET /` redirects here. `POST /search` (same route, different verb) is the JSON API the page's own `fetch()` call hits - same GET-page-vs-POST-API split the Ops Intel Agent uses for `/map` and `/briefing`.
@@ -85,6 +86,24 @@ boundary actually is.
    client in back-to-back runs; `brief_limit=3` succeeded immediately after.
    Confirms the open item below - 3 is the practical ceiling for MCP-client
    calls today, not just a conservative guess.
+10. **Xing and Indeed both expose seniority/job-type as opaque hashed
+    taxonomy codes** (e.g. Xing's `career_level_id: "3.2ebf16"`, Indeed's
+    `attributes.75GKK`), not human-readable strings like LinkedIn's
+    `seniorityLevel`. Rather than guess at a mapping that could be wrong or
+    unstable across queries, these are left unmapped (`seniority=""`) for
+    those two sources - the Extract agent's existing LLM skill-extraction
+    pass over the description text is what actually picks up seniority
+    signals for Xing/Indeed postings today.
+11. **Adding two more sources risked roughly tripling Search-stage
+    latency** if run sequentially, compounding the already-documented
+    LinkedIn-alone variance (22-90s) right into the MCP timeout problem
+    bugs 6/9 just fixed. Parallelized all three source calls
+    (`search_all_sources`, `ThreadPoolExecutor`) instead of adding them
+    one after another - verified live: a 3-source search completed in
+    22.4s, and a full multi-source Search->Extract->Match->Brief-writer
+    run (`brief_limit=3`) completed in 40.7s, actually *faster* than an
+    earlier LinkedIn-only run (65s) - source latency is bounded by the
+    slowest one, not the sum.
 
 ## Open items
 

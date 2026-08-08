@@ -1,12 +1,15 @@
-"""Extract agent node: turns raw postings (from curious_coder/linkedin-jobs-scraper,
-see apify_tools.py) into structured JobPosting records.
+"""Extract agent node: turns raw postings into structured JobPosting records.
 
-Field mapping verified against a live actor run on 2026-08-06 (raw item keys:
-id, trackingId, refId, link, title, companyName, companyLinkedinUrl,
-companyLogo, location, postedAt, benefits, descriptionHtml, applicantsCount,
-applyUrl, salary, descriptionText, seniorityLevel, employmentType,
-jobFunction, industries, ...). title/company/location/seniority/salary/url
-are already structured on the raw item, so they're copied directly rather
+As of 2026-08-08, raw postings come from three sources (LinkedIn, Xing,
+Indeed - see apify_tools.py), each normalized at the source layer to a
+common shape (title/companyName/location/seniorityLevel/link/applyUrl/
+salary/descriptionText/source) so this file doesn't need to know about three
+different platform schemas. Field mapping originally verified against a live
+LinkedIn actor run on 2026-08-06; Xing/Indeed schemas verified 2026-08-08 -
+see apify_tools.py's module docstring for the real field names and the two
+opaque-taxonomy-code limitations found (seniority isn't reliably available
+for those two sources). title/company/location/seniority/salary/url are
+already structured on the normalized item, so they're copied directly rather
 than re-derived by an LLM. Only required_skills/nice_to_have_skills are
 genuinely unstructured (buried in descriptionText prose) and need a Claude
 call to pull out."""
@@ -54,6 +57,7 @@ def _extract_one(client: anthropic.Anthropic, raw: dict) -> JobPosting:
         "nice_to_have_skills": skills.get("nice_to_have_skills", []),
         "salary": raw.get("salary") or None,
         "raw_text": description_text,
+        "source": raw.get("source", "unknown"),  # added 2026-08-08 - which platform this posting came from
     }  # type: ignore[return-value]
 
 

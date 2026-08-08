@@ -15,6 +15,7 @@ class JobPosting(TypedDict, total=False):
     nice_to_have_skills: list[str]
     salary: Optional[str]
     raw_text: str
+    source: str  # "linkedin" | "xing" | "indeed" - added 2026-08-08 (multi-source search)
 
 
 class MatchResult(TypedDict, total=False):
