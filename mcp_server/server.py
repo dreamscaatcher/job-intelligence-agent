@@ -33,6 +33,7 @@ from pydantic import BaseModel, Field
 from agent.agents.match import _load_profile
 from agent.graph import run as run_pipeline
 from agent.tools.apify_tools import search_all_sources
+from agent.tools.seniority import filter_by_seniority
 
 server = MCPServer("job-intelligence-agent")
 
@@ -53,12 +54,26 @@ class SearchAndBriefInput(BaseModel):
             "you want more briefings and can tolerate a longer, less predictable wait."
         ),
     )
+    seniority: str = Field(
+        default="",
+        description=(
+            "'' or 'any' for no filter, else one of 'entry'/'mid'/'senior'/'lead'. Applied "
+            "before brief_limit truncates the fetched pool, so it actually narrows what gets "
+            "briefed rather than filtering after the fact. Heuristic, not exact: LinkedIn has "
+            "a real structured seniority field and is trusted first; Xing/Indeed fall back to "
+            "a title-keyword scan (same opaque-taxonomy-code limitation as the seniority field "
+            "itself - see apify_tools.py). Postings with no seniority signal at all are kept, "
+            "not dropped, on the theory that silently losing an unlabeled-but-relevant posting "
+            "is worse than showing an occasional non-match."
+        ),
+    )
 
 
 class SearchOnlyInput(BaseModel):
     query: str = Field(description="Job title / keywords, e.g. 'Data Analyst'.")
     location: str = Field(default="", description="e.g. 'Berlin, Germany'.")
     max_results: int = Field(default=10, ge=10)
+    seniority: str = Field(default="", description="'' or 'any' for no filter, else 'entry'/'mid'/'senior'/'lead'.")
 
 
 @server.tool(annotations=ToolAnnotations(read_only_hint=False))  # calls Anthropic + Apify, costs API spend
@@ -71,7 +86,7 @@ def job_intel_search_and_brief(params: SearchAndBriefInput) -> str:
     Use this for "find me jobs matching X" - for raw postings without the
     LLM synthesis, use job_intel_search_postings instead (faster, cheaper).
     """
-    result = run_pipeline(params.query, params.max_results, params.location, params.brief_limit)
+    result = run_pipeline(params.query, params.max_results, params.location, params.brief_limit, params.seniority)
     return json.dumps(
         {
             "briefings": result.get("briefings", []),
@@ -88,6 +103,7 @@ def job_intel_search_postings(params: SearchOnlyInput) -> str:
     Anthropic calls). Use when you just need listings. Each item has a
     `source` field ("linkedin"/"xing"/"indeed")."""
     items, errors = search_all_sources(params.query, params.max_results, params.location)
+    items = filter_by_seniority(items, params.seniority)
     return json.dumps({"items": items, "errors": errors})
 
 

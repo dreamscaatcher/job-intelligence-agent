@@ -41,13 +41,13 @@
     border-radius: 10px;
     padding: 20px;
     display: grid;
-    grid-template-columns: 2fr 1.4fr 1fr 1fr;
+    grid-template-columns: 2fr 1.4fr 1.2fr 0.8fr 0.8fr;
     gap: 12px;
     align-items: end;
   }
   form.search-form .field { display: flex; flex-direction: column; gap: 6px; }
   form.search-form label { font-size: 12px; color: var(--text-dim); }
-  form.search-form input {
+  form.search-form input, form.search-form select {
     background: #0f1115;
     border: 1px solid var(--panel-border);
     border-radius: 6px;
@@ -55,7 +55,7 @@
     padding: 9px 10px;
     font-size: 14px;
   }
-  form.search-form input:focus { outline: none; border-color: var(--accent); }
+  form.search-form input:focus, form.search-form select:focus { outline: none; border-color: var(--accent); }
   form.search-form .submit-row { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
   button.run {
     background: var(--accent);
@@ -162,6 +162,16 @@
       <input type="text" id="location" name="location" placeholder="e.g. Berlin, Germany">
     </div>
     <div class="field">
+      <label for="seniority">Seniority</label>
+      <select id="seniority" name="seniority">
+        <option value="">Any</option>
+        <option value="entry">Entry-level / Internship</option>
+        <option value="mid">Mid-level</option>
+        <option value="senior">Senior</option>
+        <option value="lead">Lead / Principal / Manager</option>
+      </select>
+    </div>
+    <div class="field">
       <label for="max_results">Max results</label>
       <input type="number" id="max_results" name="max_results" value="10" min="10">
     </div>
@@ -170,7 +180,7 @@
       <input type="number" id="brief_limit" name="brief_limit" value="3" min="1">
     </div>
     <div class="submit-row">
-      <span class="hint">brief_limit above 3-4 has hit MCP-style timeouts in testing - raise with caution.</span>
+      <span class="hint">Seniority is a best-effort filter (title keywords + LinkedIn's own field where available) - postings with no clear signal are kept, not dropped. brief_limit above 3-4 has hit MCP-style timeouts in testing - raise with caution.</span>
       <button type="submit" class="run" id="run-btn">Run search</button>
     </div>
   </form>
@@ -248,19 +258,20 @@ form.addEventListener('submit', async (e) => {
   e.preventDefault();
   const query = document.getElementById('query').value.trim();
   const location = document.getElementById('location').value.trim();
+  const seniority = document.getElementById('seniority').value;
   const max_results = parseInt(document.getElementById('max_results').value, 10) || 10;
   const brief_limit = parseInt(document.getElementById('brief_limit').value, 10) || 3;
 
   runBtn.disabled = true;
   resultsEl.innerHTML = '';
   statusEl.className = 'status visible loading';
-  statusEl.textContent = 'Running Search → Extract → Match → Brief-writer. This can take 30-90s depending on LinkedIn/Apify latency - do not close this tab.';
+  statusEl.textContent = 'Running Search → Extract → Match → Brief-writer. This can take 30-90s depending on LinkedIn/Xing/Indeed latency - do not close this tab.';
 
   try {
     const resp = await fetch('/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ query, location, max_results, brief_limit }),
+      body: JSON.stringify({ query, location, seniority, max_results, brief_limit }),
     });
     if (!resp.ok) {
       throw new Error(`Server returned ${resp.status}`);

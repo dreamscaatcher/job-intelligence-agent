@@ -27,7 +27,7 @@ def build_graph():
     return graph.compile()
 
 
-def run(query: str, max_results: int = 20, location: str = "", brief_limit: int = 3) -> AgentState:
+def run(query: str, max_results: int = 20, location: str = "", brief_limit: int = 3, seniority: str = "") -> AgentState:
     """brief_limit defaults to 3, not max_results - see state.py's comment on
     why (MCP client timeout hit running the full 10-posting pipeline live
     2026-08-07). Dropped from an initial 5 to 3 after the Search stage alone
@@ -35,12 +35,17 @@ def run(query: str, max_results: int = 20, location: str = "", brief_limit: int 
     across runs, outside this code's control) - 3 leaves more margin against
     a slow Search run still blowing the total past a client timeout. Set
     brief_limit=max_results to brief every fetched posting, at the cost of a
-    much longer and less predictable run."""
+    much longer and less predictable run.
+
+    seniority ("" | "any" | "entry" | "mid" | "senior" | "lead") is applied
+    in search_node, before the brief_limit slice - see
+    agent/tools/seniority.py."""
     app = build_graph()
     initial_state: AgentState = {
         "query": query,
         "location": location,
         "max_results": max_results,
+        "seniority": seniority,
         "brief_limit": brief_limit,
         "errors": [],
     }

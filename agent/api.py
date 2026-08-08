@@ -23,11 +23,12 @@ class SearchRequest(BaseModel):
     location: str = ""
     max_results: int = 20
     brief_limit: int = 3
+    seniority: str = ""  # "" | "any" | "entry" | "mid" | "senior" | "lead"
 
 
 @app.post("/search")
 def search(req: SearchRequest) -> dict:
-    result = run(req.query, req.max_results, req.location, req.brief_limit)
+    result = run(req.query, req.max_results, req.location, req.brief_limit, req.seniority)
     match_results = result.get("match_results", [])
     briefings = result.get("briefings", [])
 

@@ -56,6 +56,9 @@ class AgentState(TypedDict, total=False):
                          # US postings for a "Data Analyst Berlin" query. Splitting
                          # it into its own URL param fixed it - see search.py.
     max_results: int
+    seniority: str       # "" | "any" | "entry" | "mid" | "senior" | "lead" - added 2026-08-08.
+                          # Filtered pre-Extract in search_node, not post-briefing - see
+                          # agent/tools/seniority.py for why.
     brief_limit: int    # how many of the fetched postings actually go through
                          # Extract/Match/Brief-writer (the expensive LLM stages).
                          # Real bug found 2026-08-07: job_intel_search_and_brief

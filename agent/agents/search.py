@@ -3,17 +3,23 @@
 Multi-source as of 2026-08-08 (was LinkedIn-only) - see apify_tools.py's
 module docstring for why and how. search_all_sources runs LinkedIn/Xing/
 Indeed in parallel and returns (items, errors); a single source failing
-(rate limit, actor error) doesn't fail the whole search."""
+(rate limit, actor error) doesn't fail the whole search.
+
+Seniority filtering (2026-08-08) also happens here, on the raw pool, before
+extract_node's brief_limit slice - see agent/tools/seniority.py for why it
+has to happen at this stage rather than after briefing."""
 from __future__ import annotations
 
 from agent.state import AgentState
 from agent.tools.apify_tools import search_all_sources
+from agent.tools.seniority import filter_by_seniority
 
 
 def search_node(state: AgentState) -> AgentState:
     query = state["query"]
     location = state.get("location", "")
     max_results = state.get("max_results", 20)
+    seniority = state.get("seniority", "")
     errors = list(state.get("errors", []))
 
     try:
@@ -25,5 +31,7 @@ def search_node(state: AgentState) -> AgentState:
         # crashing the whole run.
         errors.append(f"search_node: {e}")
         raw_postings = []
+
+    raw_postings = filter_by_seniority(raw_postings, seniority)
 
     return {**state, "raw_postings": raw_postings, "errors": errors}

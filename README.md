@@ -21,7 +21,7 @@ actually took. Public repo: github.com/dreamscaatcher/job-intelligence-agent.
 Search -> Extract -> Match -> Brief-writer
 ```
 
-- **Search** (`agent/agents/search.py`) - live, multi-source (`agent/tools/apify_tools.py`): `curious_coder/linkedin-jobs-scraper`, `shahidirfan/Xing-Jobs-Scraper`, and `valig/indeed-jobs-scraper` on Apify, run in parallel (`ThreadPoolExecutor`) and merged/deduped (by title+company). One source failing doesn't fail the others - errors accumulate in state like everywhere else in this pipeline. Each posting is normalized to a common shape at the source layer and tagged with `source`.
+- **Search** (`agent/agents/search.py`) - live, multi-source (`agent/tools/apify_tools.py`): `curious_coder/linkedin-jobs-scraper`, `shahidirfan/Xing-Jobs-Scraper`, and `valig/indeed-jobs-scraper` on Apify, run in parallel (`ThreadPoolExecutor`) and merged/deduped (by title+company). One source failing doesn't fail the others - errors accumulate in state like everywhere else in this pipeline. Each posting is normalized to a common shape at the source layer and tagged with `source`. An optional `seniority` filter (`agent/tools/seniority.py`) runs here too, before `brief_limit` truncates the pool - see bug 11 for its real, documented limitation.
 - **Extract** (`agent/agents/extract.py`) - structured fields (title/company/location/salary/url) copied directly from the normalized posting; skills and (when the source doesn't provide it) seniority are pulled from title+description text via one Claude call - see bug 10 below. Parallelized (`ThreadPoolExecutor`, 5 workers).
 - **Match** (`agent/agents/match.py`) - `JobPosting` vs `Profile` -> fit score + matched/missing skills, plus `transferable_signals`: a separate keyword-based scan of `profile.transferable_strengths` (adaptability, readiness to learn, cross-domain problem-solving, real domain experience like personal trading) against the posting text. Kept deliberately separate from the hard skill-overlap `fit_score` rather than blended into it - see bug 7 below for why this mattered in practice.
 - **Brief-writer** (`agent/agents/brief_writer.py`) - `MatchResult` -> SITREP briefing, same contract as the Operations Intelligence Agent's briefing tool. Parallelized, with order preserved (bug 8) so a briefing always lines up with its own match data.
@@ -98,6 +98,21 @@ boundary actually is.
     ("Not Applicable") passed through untouched while Xing/Indeed postings
     that previously got `seniority=""` now get a real inferred value
     (e.g. "Mid-level").
+11. **The seniority filter (added to the UI same day) and the seniority
+    *display* value use two different, disagreeing mechanisms - by
+    design, but worth being explicit about.** The filter
+    (`agent/tools/seniority.py`) runs pre-Extract, on the raw pool, before
+    `brief_limit` truncates it - it only has the posting *title* to go on
+    (plus LinkedIn's structured field when present), and deliberately keeps
+    anything with no clear title signal rather than dropping it. The
+    displayed `seniority` on each result comes from bug 10's LLM inference,
+    which reads the *full description*, after the filter has already run.
+    Verified live: filtering for `senior` returned 3 Xing postings whose
+    titles had no seniority keyword (correctly kept as "unknown"), but
+    whose LLM-inferred seniority from the full text came back "Mid-level" -
+    not a bug, but a real gap between what the filter can see (title only)
+    and what the display value is based on (full text). The filter narrows
+    the pool; it isn't a guarantee the results match the selected label.
 11. **Adding two more sources risked roughly tripling Search-stage
     latency** if run sequentially, compounding the already-documented
     LinkedIn-alone variance (22-90s) right into the MCP timeout problem
