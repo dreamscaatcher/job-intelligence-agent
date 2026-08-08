@@ -6,13 +6,20 @@ common shape (title/companyName/location/seniorityLevel/link/applyUrl/
 salary/descriptionText/source) so this file doesn't need to know about three
 different platform schemas. Field mapping originally verified against a live
 LinkedIn actor run on 2026-08-06; Xing/Indeed schemas verified 2026-08-08 -
-see apify_tools.py's module docstring for the real field names and the two
-opaque-taxonomy-code limitations found (seniority isn't reliably available
-for those two sources). title/company/location/seniority/salary/url are
-already structured on the normalized item, so they're copied directly rather
-than re-derived by an LLM. Only required_skills/nice_to_have_skills are
-genuinely unstructured (buried in descriptionText prose) and need a Claude
-call to pull out."""
+see apify_tools.py's module docstring for the real field names.
+title/company/location/salary/url are already structured on the normalized
+item, so they're copied directly rather than re-derived by an LLM.
+
+Seniority (2026-08-08): LinkedIn's `seniorityLevel` is real structured text
+and is trusted as-is when present. Xing (`career_level_id`, e.g. "3.2ebf16")
+and Indeed (`attributes.*`/`jobTypes.*`, e.g. "attributes.75GKK") expose it
+only as opaque hashed taxonomy codes with no public mapping and no guarantee
+they're stable across queries - rather than guess at that mapping, seniority
+for those two sources is inferred from the same title+description text the
+skills extraction already reads, via the same Claude call (no second API
+call, no extra latency). LinkedIn's own field always wins when non-empty, so
+this LLM fallback only fires where the platform genuinely doesn't give us
+usable structured data."""
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -25,36 +32,44 @@ from agent.state import AgentState, JobPosting
 
 MAX_WORKERS = 5  # bounded concurrency, not unlimited - stay polite to the Anthropic API
 
-SKILLS_SYSTEM_PROMPT = """You extract skill requirements from a job posting description.
-Return ONLY valid JSON, no prose: {"required_skills": [str], "nice_to_have_skills": [str]}
+EXTRACT_SYSTEM_PROMPT = """You extract structured requirements from a job posting.
+Return ONLY valid JSON, no prose:
+{"required_skills": [str], "nice_to_have_skills": [str], "seniority": str}
 Use short skill/technology names (e.g. "Python", "SQL", "Power BI"), not full sentences.
-Only include skills actually mentioned in the text. Do not invent skills that aren't there."""
+Only include skills actually mentioned in the text. Do not invent skills that aren't there.
+For "seniority", infer one short label from the title and text (e.g. "Entry-level",
+"Junior", "Mid-level", "Senior", "Lead/Principal", "Internship"). If the posting gives
+no real signal either way, return an empty string - do not guess."""
 
 
-def _extract_skills(client: anthropic.Anthropic, description_text: str) -> dict:
-    if not description_text.strip():
-        return {"required_skills": [], "nice_to_have_skills": []}
+def _extract_skills_and_seniority(client: anthropic.Anthropic, title: str, description_text: str) -> dict:
+    if not description_text.strip() and not title.strip():
+        return {"required_skills": [], "nice_to_have_skills": [], "seniority": ""}
+    content = f"Title: {title}\n\n{description_text[:8000]}"
     resp = client.messages.create(
         model=settings.model_name,
         max_tokens=1024,
-        system=SKILLS_SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": description_text[:8000]}],
+        system=EXTRACT_SYSTEM_PROMPT,
+        messages=[{"role": "user", "content": content}],
     )
     return parse_json_response(resp.content[0].text)
 
 
 def _extract_one(client: anthropic.Anthropic, raw: dict) -> JobPosting:
+    title = raw.get("title", "")
     description_text = raw.get("descriptionText", "") or ""
-    skills = _extract_skills(client, description_text)
+    extracted = _extract_skills_and_seniority(client, title, description_text)
+
+    seniority = raw.get("seniorityLevel", "") or extracted.get("seniority", "")
 
     return {
         "url": raw.get("link") or raw.get("applyUrl", ""),
-        "title": raw.get("title", ""),
+        "title": title,
         "company": raw.get("companyName", ""),
         "location": raw.get("location", ""),
-        "seniority": raw.get("seniorityLevel", ""),
-        "required_skills": skills.get("required_skills", []),
-        "nice_to_have_skills": skills.get("nice_to_have_skills", []),
+        "seniority": seniority,
+        "required_skills": extracted.get("required_skills", []),
+        "nice_to_have_skills": extracted.get("nice_to_have_skills", []),
         "salary": raw.get("salary") or None,
         "raw_text": description_text,
         "source": raw.get("source", "unknown"),  # added 2026-08-08 - which platform this posting came from

@@ -22,7 +22,7 @@ Search -> Extract -> Match -> Brief-writer
 ```
 
 - **Search** (`agent/agents/search.py`) - live, multi-source (`agent/tools/apify_tools.py`): `curious_coder/linkedin-jobs-scraper`, `shahidirfan/Xing-Jobs-Scraper`, and `valig/indeed-jobs-scraper` on Apify, run in parallel (`ThreadPoolExecutor`) and merged/deduped (by title+company). One source failing doesn't fail the others - errors accumulate in state like everywhere else in this pipeline. Each posting is normalized to a common shape at the source layer and tagged with `source`.
-- **Extract** (`agent/agents/extract.py`) - structured fields copied directly from the normalized posting; only skills are pulled from free text via Claude. Parallelized (`ThreadPoolExecutor`, 5 workers).
+- **Extract** (`agent/agents/extract.py`) - structured fields (title/company/location/salary/url) copied directly from the normalized posting; skills and (when the source doesn't provide it) seniority are pulled from title+description text via one Claude call - see bug 10 below. Parallelized (`ThreadPoolExecutor`, 5 workers).
 - **Match** (`agent/agents/match.py`) - `JobPosting` vs `Profile` -> fit score + matched/missing skills, plus `transferable_signals`: a separate keyword-based scan of `profile.transferable_strengths` (adaptability, readiness to learn, cross-domain problem-solving, real domain experience like personal trading) against the posting text. Kept deliberately separate from the hard skill-overlap `fit_score` rather than blended into it - see bug 7 below for why this mattered in practice.
 - **Brief-writer** (`agent/agents/brief_writer.py`) - `MatchResult` -> SITREP briefing, same contract as the Operations Intelligence Agent's briefing tool. Parallelized, with order preserved (bug 8) so a briefing always lines up with its own match data.
 - **Web UI** (`agent/static/search.html`, served at `GET /search`) - form for query/location/max_results/brief_limit, renders results as cards with a fit-score badge, matched/missing skill chips, transferable signals, and the full SITREP. `GET /` redirects here. `POST /search` (same route, different verb) is the JSON API the page's own `fetch()` call hits - same GET-page-vs-POST-API split the Ops Intel Agent uses for `/map` and `/briefing`.
@@ -90,10 +90,14 @@ boundary actually is.
     taxonomy codes** (e.g. Xing's `career_level_id: "3.2ebf16"`, Indeed's
     `attributes.75GKK`), not human-readable strings like LinkedIn's
     `seniorityLevel`. Rather than guess at a mapping that could be wrong or
-    unstable across queries, these are left unmapped (`seniority=""`) for
-    those two sources - the Extract agent's existing LLM skill-extraction
-    pass over the description text is what actually picks up seniority
-    signals for Xing/Indeed postings today.
+    unstable across queries, `extract.py` infers seniority from the same
+    title+description text the skills extraction already reads - one Claude
+    call does both (no added latency), and only fires when the platform's
+    own structured field is empty. LinkedIn's real field always wins when
+    present; verified live that a LinkedIn posting's actual value
+    ("Not Applicable") passed through untouched while Xing/Indeed postings
+    that previously got `seniority=""` now get a real inferred value
+    (e.g. "Mid-level").
 11. **Adding two more sources risked roughly tripling Search-stage
     latency** if run sequentially, compounding the already-documented
     LinkedIn-alone variance (22-90s) right into the MCP timeout problem
