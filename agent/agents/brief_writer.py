@@ -61,20 +61,41 @@ def _write_one(client: anthropic.Anthropic, match_result: dict) -> Briefing:
 def brief_writer_node(state: AgentState) -> AgentState:
     match_results = state.get("match_results", [])
     errors = list(state.get("errors", []))
-    briefings: list[Briefing] = []
 
     if not settings.anthropic_api_key:
         errors.append("brief_writer_node: ANTHROPIC_API_KEY not set")
-        return {**state, "briefings": briefings, "errors": errors}
+        return {**state, "briefings": [], "errors": errors}
 
     client = anthropic.Anthropic(api_key=settings.anthropic_api_key)
     # Parallelized 2026-08-07 alongside extract_node - same timeout root cause.
+    #
+    # Ordering fix (2026-08-07): originally collected via as_completed(), which
+    # appends in completion order, not submission order - harmless while nothing
+    # consumed briefings[i] alongside match_results[i], but the search.html UI
+    # (built same day) needs briefings[i] to describe match_results[i] so it can
+    # show a fit_score badge next to the right briefing. Submitting into a
+    # pre-sized list and resolving each future by its original index fixes this
+    # without losing concurrency - all tasks still run in parallel, only the
+    # collection is now order-preserving. A failed posting gets a placeholder
+    # Briefing (not a silently-shorter list) so the index alignment holds even
+    # when one call errors.
+    briefings: list[Briefing] = [None] * len(match_results)  # type: ignore[list-item]
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
-        future_to_mr = {pool.submit(_write_one, client, mr): mr for mr in match_results}
-        for future in as_completed(future_to_mr):
+        future_to_index = {
+            pool.submit(_write_one, client, mr): i for i, mr in enumerate(match_results)
+        }
+        for future in as_completed(future_to_index):
+            i = future_to_index[future]
             try:
-                briefings.append(future.result())
+                briefings[i] = future.result()
             except Exception as e:  # noqa: BLE001
-                errors.append(f"brief_writer_node: failed on one match: {e}")
+                errors.append(f"brief_writer_node: failed on match index {i}: {e}")
+                briefings[i] = {
+                    "situation": "",
+                    "assessment": "",
+                    "recommendation": "",
+                    "sources": [],
+                    "no_data_warning": f"Brief-writer failed for this posting: {e}",
+                }
 
     return {**state, "briefings": briefings, "errors": errors}

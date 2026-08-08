@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Job Intelligence Agent</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --panel-border: #2a2e38;
+    --text: #e6e8ec;
+    --text-dim: #9aa1ad;
+    --accent: #4f8cff;
+    --green: #35c777;
+    --yellow: #e0b84b;
+    --red: #e05a5a;
+    --gray: #5b6270;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    padding: 20px 28px;
+    border-bottom: 1px solid var(--panel-border);
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+  header h1 { font-size: 18px; margin: 0; font-weight: 600; }
+  header span { color: var(--text-dim); font-size: 13px; }
+  main { max-width: 900px; margin: 0 auto; padding: 24px 20px 60px; }
+
+  form.search-form {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 20px;
+    display: grid;
+    grid-template-columns: 2fr 1.4fr 1fr 1fr;
+    gap: 12px;
+    align-items: end;
+  }
+  form.search-form .field { display: flex; flex-direction: column; gap: 6px; }
+  form.search-form label { font-size: 12px; color: var(--text-dim); }
+  form.search-form input {
+    background: #0f1115;
+    border: 1px solid var(--panel-border);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 9px 10px;
+    font-size: 14px;
+  }
+  form.search-form input:focus { outline: none; border-color: var(--accent); }
+  form.search-form .submit-row { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; margin-top: 4px; }
+  button.run {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 10px 18px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button.run:disabled { opacity: 0.5; cursor: default; }
+  .hint { font-size: 12px; color: var(--text-dim); }
+
+  .status {
+    margin-top: 18px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    display: none;
+  }
+  .status.visible { display: block; }
+  .status.loading { background: #17223a; color: #a9c3ff; border: 1px solid #2b3f66; }
+  .status.error { background: #2c1a1a; color: #ffb3b3; border: 1px solid #5a2c2c; }
+
+  .results { margin-top: 24px; display: flex; flex-direction: column; gap: 16px; }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 18px 20px;
+  }
+  .card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+  .card-title { font-size: 16px; font-weight: 600; margin: 0 0 2px; }
+  .card-sub { font-size: 13px; color: var(--text-dim); }
+  .fit-badge {
+    flex-shrink: 0;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .fit-high { background: rgba(53,199,119,0.15); color: var(--green); }
+  .fit-mid { background: rgba(224,184,75,0.15); color: var(--yellow); }
+  .fit-low { background: rgba(224,90,90,0.15); color: var(--red); }
+  .fit-none { background: rgba(91,98,112,0.2); color: var(--gray); }
+
+  .skills-row { margin-top: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip { font-size: 11px; padding: 3px 8px; border-radius: 999px; border: 1px solid var(--panel-border); }
+  .chip.matched { color: var(--green); border-color: rgba(53,199,119,0.3); }
+  .chip.missing { color: var(--text-dim); }
+
+  .transferable {
+    margin-top: 10px;
+    font-size: 12px;
+    color: #c9b8ff;
+    background: rgba(160,120,255,0.08);
+    border: 1px solid rgba(160,120,255,0.2);
+    border-radius: 6px;
+    padding: 8px 10px;
+  }
+
+  .section { margin-top: 12px; }
+  .section h4 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-dim); margin: 0 0 4px; }
+  .section p { font-size: 14px; line-height: 1.5; margin: 0; }
+
+  .sources { margin-top: 12px; font-size: 12px; }
+  .sources a { color: var(--accent); text-decoration: none; word-break: break-all; }
+  .sources a:hover { text-decoration: underline; }
+
+  .no-data { margin-top: 10px; font-size: 12px; color: var(--yellow); }
+
+  .empty-state { margin-top: 40px; text-align: center; color: var(--text-dim); font-size: 14px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Job Intelligence Agent</h1>
+  <span>Search &rarr; Extract &rarr; Match &rarr; SITREP Brief</span>
+</header>
+<main>
+  <form class="search-form" id="search-form">
+    <div class="field">
+      <label for="query">Query (keywords only, no location)</label>
+      <input type="text" id="query" name="query" placeholder="e.g. Data Analyst" required>
+    </div>
+    <div class="field">
+      <label for="location">Location</label>
+      <input type="text" id="location" name="location" placeholder="e.g. Berlin, Germany">
+    </div>
+    <div class="field">
+      <label for="max_results">Max results</label>
+      <input type="number" id="max_results" name="max_results" value="10" min="10">
+    </div>
+    <div class="field">
+      <label for="brief_limit">Brief limit</label>
+      <input type="number" id="brief_limit" name="brief_limit" value="3" min="1">
+    </div>
+    <div class="submit-row">
+      <span class="hint">brief_limit above 3-4 has hit MCP-style timeouts in testing - raise with caution.</span>
+      <button type="submit" class="run" id="run-btn">Run search</button>
+    </div>
+  </form>
+
+  <div class="status" id="status"></div>
+  <div class="results" id="results"></div>
+</main>
+
+<script>
+const form = document.getElementById('search-form');
+const statusEl = document.getElementById('status');
+const resultsEl = document.getElementById('results');
+const runBtn = document.getElementById('run-btn');
+
+function fitClass(score) {
+  if (score === null || score === undefined) return 'fit-none';
+  if (score >= 0.5) return 'fit-high';
+  if (score >= 0.2) return 'fit-mid';
+  return 'fit-low';
+}
+function fitLabel(score) {
+  if (score === null || score === undefined) return 'no skills data';
+  return Math.round(score * 100) + '% fit';
+}
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s == null ? '' : s;
+  return d.innerHTML;
+}
+
+function renderResult(r) {
+  const chips = [
+    ...r.matched_skills.map(s => `<span class="chip matched">${esc(s)}</span>`),
+    ...r.missing_skills.slice(0, 12).map(s => `<span class="chip missing">${esc(s)}</span>`),
+  ].join('');
+
+  const transferable = r.transferable_signals && r.transferable_signals.length
+    ? `<div class="transferable">${r.transferable_signals.map(esc).join('<br><br>')}</div>`
+    : '';
+
+  const noData = r.no_data_warning
+    ? `<div class="no-data">${esc(r.no_data_warning)}</div>`
+    : '';
+
+  const sources = (r.sources || []).map(
+    u => `<div><a href="${esc(u)}" target="_blank" rel="noopener">${esc(u)}</a></div>`
+  ).join('');
+
+  const subParts = [r.company, r.location, r.seniority, r.salary].filter(Boolean).map(esc);
+
+  return `
+    <div class="card">
+      <div class="card-head">
+        <div>
+          <p class="card-title">${esc(r.title) || 'Untitled posting'}</p>
+          <div class="card-sub">${subParts.join(' &middot; ')}</div>
+        </div>
+        <span class="fit-badge ${fitClass(r.fit_score)}">${fitLabel(r.fit_score)}</span>
+      </div>
+      <div class="skills-row">${chips}</div>
+      ${transferable}
+      <div class="section"><h4>Situation</h4><p>${esc(r.situation)}</p></div>
+      <div class="section"><h4>Assessment</h4><p>${esc(r.assessment)}</p></div>
+      <div class="section"><h4>Recommendation</h4><p>${esc(r.recommendation)}</p></div>
+      ${noData}
+      <div class="sources">${sources}</div>
+    </div>
+  `;
+}
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const query = document.getElementById('query').value.trim();
+  const location = document.getElementById('location').value.trim();
+  const max_results = parseInt(document.getElementById('max_results').value, 10) || 10;
+  const brief_limit = parseInt(document.getElementById('brief_limit').value, 10) || 3;
+
+  runBtn.disabled = true;
+  resultsEl.innerHTML = '';
+  statusEl.className = 'status visible loading';
+  statusEl.textContent = 'Running Search → Extract → Match → Brief-writer. This can take 30-90s depending on LinkedIn/Apify latency - do not close this tab.';
+
+  try {
+    const resp = await fetch('/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query, location, max_results, brief_limit }),
+    });
+    if (!resp.ok) {
+      throw new Error(`Server returned ${resp.status}`);
+    }
+    const data = await resp.json();
+
+    if (data.errors && data.errors.length) {
+      statusEl.className = 'status visible error';
+      statusEl.textContent = 'Completed with errors: ' + data.errors.join(' | ');
+    } else {
+      statusEl.className = 'status';
+      statusEl.textContent = '';
+    }
+
+    if (!data.results || !data.results.length) {
+      resultsEl.innerHTML = '<div class="empty-state">No briefings returned. Check the status message above, or try a broader query/location.</div>';
+    } else {
+      resultsEl.innerHTML = data.results.map(renderResult).join('');
+    }
+  } catch (err) {
+    statusEl.className = 'status visible error';
+    statusEl.textContent = 'Request failed: ' + err.message + '. If this was a timeout, try a lower brief_limit and re-run.';
+  } finally {
+    runBtn.disabled = false;
+  }
+});
+</script>
+</body>
+</html>

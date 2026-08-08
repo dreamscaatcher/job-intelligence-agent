@@ -1,5 +1,6 @@
 .env
 agent/profile/profile.json
+applications/
 __pycache__/
 *.pyc
 .venv/
